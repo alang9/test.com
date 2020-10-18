@@ -31665,6 +31665,13 @@ var vec2 = function vec2(x) {
   };
 };
 
+var touchToPos = function touchToPos(touch) {
+  return {
+    x: Web_TouchEvent_Touch.clientX(touch),
+    y: Web_TouchEvent_Touch.clientY(touch)
+  };
+};
+
 var semiringV3 = new Data_Semiring.Semiring(function (v) {
   return function (v1) {
     return {
@@ -31755,7 +31762,7 @@ var reflectPoint = function reflectPoint(v) {
     }
 
     ;
-    throw new Error("Failed pattern match at Main (line 314, column 1 - line 314, column 38): " + [v.constructor.name, v1.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 327, column 1 - line 327, column 38): " + [v.constructor.name, v1.constructor.name]);
   };
 };
 
@@ -31780,11 +31787,11 @@ var monoidV2 = new Data_Monoid.Monoid(function () {
   y: 0.0
 });
 
-var makeSwipe = function makeSwipe(m$primestartTouch) {
-  return function (endTouch) {
-    return Control_Bind.bind(Data_Maybe.bindMaybe)(m$primestartTouch)(function (startTouch) {
-      var dx = Web_TouchEvent_Touch.clientX(endTouch) - Web_TouchEvent_Touch.clientX(startTouch) | 0;
-      var dy = Web_TouchEvent_Touch.clientY(endTouch) - Web_TouchEvent_Touch.clientY(startTouch) | 0;
+var makeSwipe = function makeSwipe(m$primestart) {
+  return function (end) {
+    return Control_Bind.bind(Data_Maybe.bindMaybe)(m$primestart)(function (start) {
+      var dx = end.x - start.x | 0;
+      var dy = end.y - start.y | 0;
 
       if (dx > 0 && dy < dx && dy > (-dx | 0)) {
         return new Data_Maybe.Just(SwipeRight.value);
@@ -31803,123 +31810,140 @@ var makeSwipe = function makeSwipe(m$primestartTouch) {
       }
 
       ;
-      throw new Error("Failed pattern match at Main (line 176, column 3 - line 179, column 29): " + [Data_Unit.unit.constructor.name]);
+      throw new Error("Failed pattern match at Main (line 186, column 3 - line 189, column 29): " + [Data_Unit.unit.constructor.name]);
     });
   };
 };
 
-var scene = function scene(keyboard) {
-  var rightArrow = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (b) {
-    if (b) {
-      return new Data_Maybe.Just(new Press(1));
-    }
+var scene = function scene(mouse) {
+  return function (keyboard) {
+    var unClick = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (x) {
+      return x;
+    })(Data_Functor.map(FRP_Event.functorEvent)(function (v) {
+      return v.pos;
+    })(FRP_Event_Mouse.withPosition(mouse)(FRP_Event_Mouse.up)));
 
-    ;
-    return Data_Maybe.Nothing.value;
-  })(Data_Functor.map(FRP_Event.functorEvent)(Data_Eq.eq(Data_Eq.eqString)("ArrowRight"))(FRP_Event_Keyboard.down));
-  var noTouch = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (te) {
-    var $68 = Web_TouchEvent_TouchList.length(Web_TouchEvent_TouchEvent.touches(te)) === 0;
-
-    if ($68) {
-      return Web_TouchEvent_TouchList.item(0)(Web_TouchEvent_TouchEvent.changedTouches(te));
-    }
-
-    ;
-    return Data_Maybe.Nothing.value;
-  })(FRP_Event_Touch.end);
-  var leftArrow = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (b) {
-    if (b) {
-      return new Data_Maybe.Just(new Press(-1 | 0));
-    }
-
-    ;
-    return Data_Maybe.Nothing.value;
-  })(Data_Functor.map(FRP_Event.functorEvent)(Data_Eq.eq(Data_Eq.eqString)("ArrowLeft"))(FRP_Event_Keyboard.down));
-  var lastTouch = FRP_Behavior.step(FRP_Event.eventIsEvent)(Data_Maybe.Nothing.value)(Data_Functor.mapFlipped(FRP_Event.functorEvent)(FRP_Event_Touch.start)(function (te) {
-    return Web_TouchEvent_TouchList.item(0)(Web_TouchEvent_TouchEvent.changedTouches(te));
-  }));
-  var swipe = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (x) {
-    return x;
-  })(FRP_Behavior.sampleBy(FRP_Event.eventIsEvent)(makeSwipe)(lastTouch)(noTouch));
-  var pressSwipe = Data_Functor.mapFlipped(FRP_Event.functorEvent)(swipe)(function (sw) {
-    if (sw instanceof SwipeLeft) {
-      return new Press(-1 | 0);
-    }
-
-    ;
-
-    if (sw instanceof SwipeRight) {
-      return new Press(1);
-    }
-
-    ;
-
-    if (sw instanceof SwipeDown) {
-      return new Press(999);
-    }
-
-    ;
-
-    if (sw instanceof SwipeUp) {
-      return new Press(999);
-    }
-
-    ;
-    throw new Error("Failed pattern match at Main (line 192, column 35 - line 196, column 27): " + [sw.constructor.name]);
-  });
-
-  var getDiff = function getDiff(v) {
-    return Data_Functor.map(Data_Maybe.functorMaybe)(function () {
-      var $121 = Data_Time_Duration.negateDuration(Data_Time_Duration.durationMilliseconds);
-      return function ($122) {
-        return function (v1) {
-          return Data_Semigroup.append(Data_Time_Duration.semigroupMilliseconds)(Data_DateTime_Instant.unInstant(v.now))(v1);
-        }($121(Data_DateTime_Instant.unInstant($122)));
-      };
-    }())(v.last);
-  };
-
-  var timeElapsed = Data_Filterable.filterMap(FRP_Event.filterableEvent)(getDiff)(FRP_Event_Class.withLast(FRP_Event.eventIsEvent)(FRP_Behavior.sample_(FRP_Event.eventIsEvent)(FRP_Behavior_Time.instant)(FRP_Event_AnimationFrame.animationFrame)));
-  var pressOrElapse = Control_Alt.alt(FRP_Event.altEvent)(Control_Alt.alt(FRP_Event.altEvent)(Control_Alt.alt(FRP_Event.altEvent)(pressSwipe)(leftArrow))(rightArrow))(Data_Functor.map(FRP_Event.functorEvent)(Elapse.create)(timeElapsed));
-
-  var f = function f(v) {
-    return function (v1) {
-      if (v instanceof Press && v1 instanceof Num) {
-        return new Lerp(0.0, v1.value0, v1.value0 + v.value0 | 0);
-      }
-
-      ;
-
-      if (v instanceof Press && v1 instanceof Lerp) {
-        return new Lerp(0.0, v1.value2, v1.value2 + v.value0 | 0);
-      }
-
-      ;
-
-      if (v instanceof Elapse && v1 instanceof Num) {
-        return new Num(v1.value0);
-      }
-
-      ;
-
-      if (v instanceof Elapse && v1 instanceof Lerp) {
-        var newT = v1.value0 + Data_Newtype.unwrap(Data_Time_Duration.newtypeMilliseconds)(v.value0) / 300.0;
-        var $84 = newT > 1.0;
-
-        if ($84) {
-          return new Num(v1.value2);
+    var toPress = function toPress(event) {
+      return Data_Functor.mapFlipped(FRP_Event.functorEvent)(event)(function (sw) {
+        if (sw instanceof SwipeLeft) {
+          return new Press(-1 | 0);
         }
 
         ;
-        return new Lerp(newT, v1.value1, v1.value2);
+
+        if (sw instanceof SwipeRight) {
+          return new Press(1);
+        }
+
+        ;
+
+        if (sw instanceof SwipeDown) {
+          return new Press(999);
+        }
+
+        ;
+
+        if (sw instanceof SwipeUp) {
+          return new Press(999);
+        }
+
+        ;
+        throw new Error("Failed pattern match at Main (line 205, column 39 - line 209, column 27): " + [sw.constructor.name]);
+      });
+    };
+
+    var rightArrow = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (b) {
+      if (b) {
+        return new Data_Maybe.Just(new Press(1));
       }
 
       ;
-      throw new Error("Failed pattern match at Main (line 199, column 5 - line 199, column 59): " + [v.constructor.name, v1.constructor.name]);
-    };
-  };
+      return Data_Maybe.Nothing.value;
+    })(Data_Functor.map(FRP_Event.functorEvent)(Data_Eq.eq(Data_Eq.eqString)("ArrowRight"))(FRP_Event_Keyboard.down));
+    var noTouch = Data_Functor.map(FRP_Event.functorEvent)(touchToPos)(Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (te) {
+      var $71 = Web_TouchEvent_TouchList.length(Web_TouchEvent_TouchEvent.touches(te)) === 0;
 
-  return FRP_Behavior.unfold(FRP_Event.eventIsEvent)(f)(pressOrElapse)(new Num(0));
+      if ($71) {
+        return Web_TouchEvent_TouchList.item(0)(Web_TouchEvent_TouchEvent.changedTouches(te));
+      }
+
+      ;
+      return Data_Maybe.Nothing.value;
+    })(FRP_Event_Touch.end));
+    var leftArrow = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (b) {
+      if (b) {
+        return new Data_Maybe.Just(new Press(-1 | 0));
+      }
+
+      ;
+      return Data_Maybe.Nothing.value;
+    })(Data_Functor.map(FRP_Event.functorEvent)(Data_Eq.eq(Data_Eq.eqString)("ArrowLeft"))(FRP_Event_Keyboard.down));
+    var lastTouch = Data_Functor.map(FRP_Behavior.functorABehavior(FRP_Event.functorEvent))(Data_Functor.map(Data_Maybe.functorMaybe)(touchToPos))(FRP_Behavior.step(FRP_Event.eventIsEvent)(Data_Maybe.Nothing.value)(Data_Functor.mapFlipped(FRP_Event.functorEvent)(FRP_Event_Touch.start)(function (te) {
+      return Web_TouchEvent_TouchList.item(0)(Web_TouchEvent_TouchEvent.changedTouches(te));
+    })));
+    var swipe = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (x) {
+      return x;
+    })(FRP_Behavior.sampleBy(FRP_Event.eventIsEvent)(makeSwipe)(lastTouch)(noTouch));
+    var lastClick = FRP_Behavior.step(FRP_Event.eventIsEvent)(Data_Maybe.Nothing.value)(Data_Functor.map(FRP_Event.functorEvent)(function (v) {
+      return v.pos;
+    })(FRP_Event_Mouse.withPosition(mouse)(FRP_Event_Mouse.down)));
+
+    var getDiff = function getDiff(v) {
+      return Data_Functor.map(Data_Maybe.functorMaybe)(function () {
+        var $123 = Data_Time_Duration.negateDuration(Data_Time_Duration.durationMilliseconds);
+        return function ($124) {
+          return function (v1) {
+            return Data_Semigroup.append(Data_Time_Duration.semigroupMilliseconds)(Data_DateTime_Instant.unInstant(v.now))(v1);
+          }($123(Data_DateTime_Instant.unInstant($124)));
+        };
+      }())(v.last);
+    };
+
+    var timeElapsed = Data_Filterable.filterMap(FRP_Event.filterableEvent)(getDiff)(FRP_Event_Class.withLast(FRP_Event.eventIsEvent)(FRP_Behavior.sample_(FRP_Event.eventIsEvent)(FRP_Behavior_Time.instant)(FRP_Event_AnimationFrame.animationFrame)));
+    var drag = Data_Filterable.filterMap(FRP_Event.filterableEvent)(function (x) {
+      return x;
+    })(FRP_Behavior.sampleBy(FRP_Event.eventIsEvent)(makeSwipe)(lastClick)(unClick));
+    var pressOrElapse = Control_Alt.alt(FRP_Event.altEvent)(Control_Alt.alt(FRP_Event.altEvent)(Control_Alt.alt(FRP_Event.altEvent)(Control_Alt.alt(FRP_Event.altEvent)(toPress(drag))(toPress(swipe)))(leftArrow))(rightArrow))(Data_Functor.map(FRP_Event.functorEvent)(Elapse.create)(timeElapsed));
+
+    var f = function f(v) {
+      return function (v1) {
+        if (v instanceof Press && v1 instanceof Num) {
+          return new Lerp(0.0, v1.value0, v1.value0 + v.value0 | 0);
+        }
+
+        ;
+
+        if (v instanceof Press && v1 instanceof Lerp) {
+          return new Lerp(0.0, v1.value2, v1.value2 + v.value0 | 0);
+        }
+
+        ;
+
+        if (v instanceof Elapse && v1 instanceof Num) {
+          return new Num(v1.value0);
+        }
+
+        ;
+
+        if (v instanceof Elapse && v1 instanceof Lerp) {
+          var newT = v1.value0 + Data_Newtype.unwrap(Data_Time_Duration.newtypeMilliseconds)(v.value0) / 300.0;
+          var $86 = newT > 1.0;
+
+          if ($86) {
+            return new Num(v1.value2);
+          }
+
+          ;
+          return new Lerp(newT, v1.value1, v1.value2);
+        }
+
+        ;
+        throw new Error("Failed pattern match at Main (line 212, column 5 - line 212, column 59): " + [v.constructor.name, v1.constructor.name]);
+      };
+    };
+
+    return FRP_Behavior.unfold(FRP_Event.eventIsEvent)(f)(pressOrElapse)(new Num(0));
+  };
 };
 
 var hyperboloidTranslateX = function hyperboloidTranslateX(dist) {
@@ -32018,7 +32042,7 @@ var extend = function extend(v) {
   }
 
   ;
-  throw new Error("Failed pattern match at Main (line 239, column 3 - line 241, column 57): " + [Data_Unit.unit.constructor.name]);
+  throw new Error("Failed pattern match at Main (line 252, column 3 - line 254, column 57): " + [Data_Unit.unit.constructor.name]);
 };
 
 var pathHyperSegment = function pathHyperSegment(ctx) {
@@ -32057,7 +32081,7 @@ var pathHyperSegment = function pathHyperSegment(ctx) {
           }
 
           ;
-          throw new Error("Failed pattern match at Main (line 270, column 7 - line 273, column 30): " + []);
+          throw new Error("Failed pattern match at Main (line 283, column 7 - line 286, column 30): " + []);
         }();
 
         var anticlockwise = function () {
@@ -32072,7 +32096,7 @@ var pathHyperSegment = function pathHyperSegment(ctx) {
           }
 
           ;
-          throw new Error("Failed pattern match at Main (line 276, column 7 - line 278, column 27): " + []);
+          throw new Error("Failed pattern match at Main (line 289, column 7 - line 291, column 27): " + []);
         }();
 
         return $foreign.arc(ctx)({
@@ -32086,7 +32110,7 @@ var pathHyperSegment = function pathHyperSegment(ctx) {
       }
 
       ;
-      throw new Error("Failed pattern match at Main (line 254, column 77 - line 278, column 27): " + [v1.constructor.name]);
+      throw new Error("Failed pattern match at Main (line 267, column 77 - line 291, column 27): " + [v1.constructor.name]);
     };
   };
 };
@@ -32163,13 +32187,13 @@ var drawFoo = function drawFoo(state) {
       }
 
       ;
-      throw new Error("Failed pattern match at Main (line 149, column 29 - line 151, column 77): " + [state.constructor.name]);
+      throw new Error("Failed pattern match at Main (line 151, column 29 - line 153, column 77): " + [state.constructor.name]);
     }();
 
     fillAndStrokePath(ctx)(Data_Traversable.traverse(Data_List_Types.traversableList)(Effect.applicativeEffect)(pathHyperSegment(ctx)(scale))(Data_Functor.map(Data_List_Types.functorList)(Data_Functor.map(functionHyperSegment)(function () {
-      var $123 = hyperboloidTranslateX(translationDistance);
-      return function ($124) {
-        return h2p($123(p2h($124)));
+      var $125 = hyperboloidTranslateX(translationDistance);
+      return function ($126) {
+        return h2p($125(p2h($126)));
       };
     }()))(poly.edges)))();
     return Data_Unit.unit;
@@ -32189,7 +32213,7 @@ var main = function __do() {
   Web_Event_EventTarget.addEventListener(Web_TouchEvent_EventTypes.touchmove)(touchMoveListener)(false)(Web_HTML_Window.toEventTarget(w))();
   var mouse = FRP_Event_Mouse.getMouse();
   var keyboard = FRP_Event_Keyboard.getKeyboard();
-  FRP_Behavior.animate(scene(keyboard))(drawFoo)();
+  FRP_Behavior.animate(scene(mouse)(keyboard))(drawFoo)();
   return Data_Unit.unit;
 };
 
@@ -32210,6 +32234,7 @@ module.exports = {
   SwipeDown: SwipeDown,
   SwipeLeft: SwipeLeft,
   SwipeRight: SwipeRight,
+  touchToPos: touchToPos,
   makeSwipe: makeSwipe,
   scene: scene,
   fillAndStrokePath: fillAndStrokePath,
@@ -32295,7 +32320,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "38247" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "44279" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
